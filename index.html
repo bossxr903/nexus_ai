@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nexus AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff;
+            color: #0f0f0f;
+            overscroll-behavior: none;
+        }
+
+        /* Hide scrollbar for a clean UI */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .markdown-body p { margin-bottom: 0.75em; line-height: 1.6; }
+        .markdown-body pre { background: #f4f4f5; padding: 12px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 13px; margin-bottom: 0.75em;}
+        .markdown-body code { background: #f4f4f5; padding: 2px 4px; border-radius: 4px; font-family: monospace; font-size: 13px; color: #d946ef;}
+
+        /* Typing animation */
+        .typing-indicator span {
+            display: inline-block;
+            width: 5px;
+            height: 5px;
+            background-color: #0f0f0f;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.3;}
+            40% { transform: scale(1); opacity: 1;}
+        }
+    </style>
+</head>
+<body class="h-screen w-full flex overflow-hidden">
+
+    <!-- Sidebar Overlay for Mobile -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/20 z-40 hidden transition-opacity duration-300" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-[80%] max-w-[300px] bg-gray-50 border-r border-gray-200 transform -translate-x-full md:translate-x-0 md:static transition-transform duration-300 flex flex-col hide-scrollbar">
+        
+        <!-- Sidebar Top: New Chat -->
+        <div class="p-3 flex items-center justify-between sticky top-0 bg-gray-50 z-10">
+            <button onclick="createNewChat()" class="flex-1 flex items-center justify-between px-3 py-2.5 bg-white border border-gray-200 hover:bg-gray-100 rounded-lg text-sm font-medium text-gray-700 transition-colors shadow-sm">
+                <div class="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    Nexus AI
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <button onclick="toggleSidebar()" class="md:hidden p-2 text-gray-500 ml-1 hover:bg-gray-200 rounded-md">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+
+        <!-- Chat History -->
+        <div class="px-3 pb-4 flex-1 overflow-y-auto hide-scrollbar">
+            <h3 class="text-xs font-semibold text-gray-500 mt-4 mb-2 px-2">Recent Chats</h3>
+            <div id="recentChatsList" class="space-y-1">
+                <!-- Chat list will be injected here -->
+            </div>
+        </div>
+
+        <!-- User/Login Placeholder -->
+        <div class="p-3 border-t border-gray-200 bg-gray-50 mt-auto">
+            <div class="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-200 cursor-pointer transition-colors text-sm font-medium text-gray-800">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </div>
+                <div class="flex-1 truncate">Guest Account</div>
+                <svg class="text-gray-400" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Chat Interface -->
+    <main class="flex-1 flex flex-col relative w-full bg-white h-full">
+        
+        <!-- Header -->
+        <header class="h-14 flex items-center justify-between px-4 sticky top-0 z-10 bg-white">
+            <button onclick="toggleSidebar()" class="w-10 h-10 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 active:bg-gray-200 md:hidden -ml-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+            <div class="font-semibold text-lg text-gray-800 md:hidden">Nexus AI</div>
+            <div class="w-10 h-10 md:hidden"></div>
+        </header>
+
+        <!-- Scrollable Chat Area -->
+        <div id="chatContainer" class="flex-1 overflow-y-auto px-4 md:px-10 pb-32 hide-scrollbar relative">
+            <!-- Dynamic Content (Empty state or Messages) -->
+        </div>
+
+        <!-- Floating Input Area -->
+        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white to-transparent pt-10 pb-4 px-4 md:px-8">
+            <div class="max-w-3xl mx-auto flex items-end gap-2 bg-[#f4f4f5] rounded-3xl p-1.5 border border-gray-200 focus-within:border-gray-300 shadow-sm transition-all">
+                
+                <button class="w-10 h-10 flex-shrink-0 flex items-center justify-center text-gray-500 hover:text-black mb-0.5 rounded-full hover:bg-gray-200 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+                
+                <textarea 
+                    id="messageInput" 
+                    rows="1"
+                    placeholder="Message Nexus AI..." 
+                    class="flex-1 bg-transparent border-none outline-none resize-none py-3 text-[16px] text-black placeholder-gray-500 max-h-[150px] min-h-[24px] hide-scrollbar"
+                    oninput="handleInput(this)"
+                    onkeydown="handleKey(event)"
+                ></textarea>
+                
+                <div class="flex gap-1 items-center mb-0.5">
+                    <button id="sendBtn" onclick="sendMessage()" disabled class="w-9 h-9 rounded-full bg-black text-white flex items-center justify-center active:scale-95 transition-transform disabled:bg-gray-300 disabled:text-gray-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="text-center text-xs text-gray-400 mt-2">
+                AI can make mistakes. Consider verifying important information.
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // State Management
+        let chats = JSON.parse(localStorage.getItem('nexus_ai_data')) || [];
+        let activeChatId = null;
+        let isGenerating = false;
+
+        window.onload = () => {
+            if (chats.length === 0) createNewChat();
+            else {
+                activeChatId = chats[0].id;
+                renderApp();
+            }
+        };
+
+        function renderApp() {
+            localStorage.setItem('nexus_ai_data', JSON.stringify(chats));
+            renderSidebarList();
+            renderChatView();
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+        function createNewChat() {
+            const newChat = { id: Date.now().toString(), title: "New chat", messages: [] };
+            chats.unshift(newChat);
+            activeChatId = newChat.id;
+            
+            if(window.innerWidth < 768) {
+                document.getElementById('sidebar').classList.add('-translate-x-full');
+                document.getElementById('sidebarOverlay').classList.add('hidden');
+            }
+            renderApp();
+            document.getElementById('messageInput').focus();
+        }
+
+        function deleteChat(e, id) {
+            e.stopPropagation();
+            chats = chats.filter(c => c.id !== id);
+            if(activeChatId === id) activeChatId = chats.length > 0 ? chats[0].id : null;
+            if(chats.length === 0) createNewChat();
+            else renderApp();
+        }
+
+        function setInputFocus(text) {
+            const input = document.getElementById('messageInput');
+            input.value = text;
+            input.focus();
+            handleInput(input);
+            if(window.innerWidth < 768) {
+                document.getElementById('sidebar').classList.add('-translate-x-full');
+                document.getElementById('sidebarOverlay').classList.add('hidden');
+            }
+        }
+
+        function handleInput(el) {
+            el.style.height = 'auto';
+            el.style.height = (el.scrollHeight) + 'px';
+            if(el.value === "") el.style.height = 'auto';
+
+            const sendBtn = document.getElementById('sendBtn');
+            if (el.value.trim().length > 0 && !isGenerating) {
+                sendBtn.disabled = false;
+                sendBtn.classList.remove('bg-gray-300', 'text-gray-500');
+                sendBtn.classList.add('bg-black', 'text-white');
+            } else {
+                sendBtn.disabled = true;
+                sendBtn.classList.add('bg-gray-300', 'text-gray-500');
+                sendBtn.classList.remove('bg-black', 'text-white');
+            }
+        }
+
+        function handleKey(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // Image Download Logic
+        async function downloadImage(imageUrl) {
+            try {
+                const response = await fetch(imageUrl);
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `Nexus_AI_Image_${Date.now()}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                window.open(imageUrl, '_blank');
+            }
+        }
+
+        function renderSidebarList() {
+            const list = document.getElementById('recentChatsList');
+            list.innerHTML = '';
+            
+            chats.forEach(chat => {
+                const isActive = chat.id === activeChatId;
+                list.innerHTML += `
+                    <div onclick="activeChatId='${chat.id}'; if(window.innerWidth < 768) toggleSidebar(); renderApp();" 
+                         class="group flex items-center justify-between text-[14px] cursor-pointer py-2 px-3 rounded-lg transition-colors ${isActive ? 'bg-gray-200/60 font-medium text-black' : 'text-gray-600 hover:bg-gray-100'}">
+                        <div class="truncate pr-2">${chat.title}</div>
+                        <button onclick="deleteChat(event, '${chat.id}')" class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 p-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        function formatMarkdown(text) {
+            if(!text) return "";
+            let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/`(.*?)`/g, '<code>$1</code>');
+            html = html.replace(/\n/g, '<br/>');
+            return html;
+        }
+
+        function renderChatView() {
+            const container = document.getElementById('chatContainer');
+            const activeChat = chats.find(c => c.id === activeChatId);
+
+            if (!activeChat || activeChat.messages.length === 0) {
+                // Feature-rich Welcome Screen (BgRemove removed, Translate added)
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center max-w-3xl mx-auto mt-[8vh]">
+                        <div class="w-14 h-14 bg-black text-white rounded-full flex items-center justify-center mb-6 shadow-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>
+                        </div>
+                        <h1 class="text-2xl md:text-3xl font-semibold mb-8 text-center text-gray-800">What can I help with?</h1>
+                        
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 w-full px-2">
+                            <!-- Card 1: Create Image -->
+                            <button onclick="setInputFocus('/image ')" class="flex flex-col items-start gap-1.5 border border-gray-200 rounded-2xl p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
+                                <svg class="text-green-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                <span class="text-gray-700 font-medium text-sm">Create image</span>
+                                <span class="text-gray-400 text-xs font-mono">/image</span>
+                            </button>
+                            
+                            <!-- Card 2: Code Help -->
+                            <button onclick="setInputFocus('Can you help me write some code in JavaScript? ')" class="flex flex-col items-start gap-1.5 border border-gray-200 rounded-2xl p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
+                                <svg class="text-blue-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                                <span class="text-gray-700 font-medium text-sm">Code help</span>
+                                <span class="text-gray-400 text-xs">Write, debug & fix</span>
+                            </button>
+                            
+                            <!-- Card 3: Write & Edit -->
+                            <button onclick="setInputFocus('Write an essay about ')" class="flex flex-col items-start gap-1.5 border border-gray-200 rounded-2xl p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
+                                <svg class="text-orange-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                <span class="text-gray-700 font-medium text-sm">Write & Edit</span>
+                                <span class="text-gray-400 text-xs">Emails, essays, etc.</span>
+                            </button>
+                            
+                            <!-- Card 4: Summarize -->
+                            <button onclick="setInputFocus('Summarize the following text: \n\n')" class="flex flex-col items-start gap-1.5 border border-gray-200 rounded-2xl p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
+                                <svg class="text-teal-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                                <span class="text-gray-700 font-medium text-sm">Summarize</span>
+                                <span class="text-gray-400 text-xs">Articles & long text</span>
+                            </button>
+                            
+                            <!-- Card 5: Brainstorm -->
+                            <button onclick="setInputFocus('Give me some ideas for ')" class="flex flex-col items-start gap-1.5 border border-gray-200 rounded-2xl p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
+                                <svg class="text-yellow-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="4"></line><line x1="12" y1="20" x2="12" y2="22"></line><line x1="2" y1="12" x2="4" y2="12"></line><line x1="20" y1="12" x2="22" y2="12"></line></svg>
+                                <span class="text-gray-700 font-medium text-sm">Brainstorm</span>
+                                <span class="text-gray-400 text-xs">Projects & ideas</span>
+                            </button>
+                            
+                            <!-- Card 6: Translate (Replaced bgremove) -->
+                            <button onclick="setInputFocus('Translate the following sentence to Spanish: ')" class="flex flex-col items-start gap-1.5 border border-gray-200 rounded-2xl p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
+                                <svg class="text-indigo-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l6 6"></path><path d="M4 14l6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="M22 22l-5-10-5 10"></path><path d="M14 18h6"></path></svg>
+                                <span class="text-gray-700 font-medium text-sm">Translate</span>
+                                <span class="text-gray-400 text-xs">Languages & text</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Messages View
+            let html = '<div class="max-w-3xl mx-auto pt-6 space-y-6">';
+            
+            activeChat.messages.forEach((msg, idx) => {
+                if (msg.role === 'user') {
+                    html += `
+                        <div class="flex justify-end mb-6 pl-10">
+                            <div class="bg-[#f4f4f5] text-black px-4 py-2.5 rounded-2xl rounded-tr-[4px] max-w-full text-[15px] whitespace-pre-wrap">
+                                ${msg.content}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    let contentHtml = '';
+                    if(msg.type === 'image') {
+                        // Image with Download Button Overlay
+                        contentHtml = `
+                            <div class="relative group inline-block mt-2">
+                                <img src="${msg.content}" class="rounded-xl max-w-full md:max-w-sm h-auto border border-gray-200 shadow-sm block" alt="Generated Output">
+                                <button onclick="downloadImage('${msg.content}')" class="absolute top-2 right-2 bg-black/70 hover:bg-black text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 text-xs font-medium backdrop-blur-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                    Download
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        contentHtml = `<div class="markdown-body text-[15px] text-gray-800 break-words">${formatMarkdown(msg.content)}</div>`;
+                    }
+
+                    html += `
+                        <div class="flex gap-4 mb-6">
+                            <div class="w-8 h-8 rounded-full border border-gray-200 flex-shrink-0 flex items-center justify-center bg-white shadow-sm mt-0.5">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                            </div>
+                            <div class="flex-1 overflow-hidden">
+                                <span class="font-semibold text-[15px] mb-1 block">Nexus AI</span>
+                                ${contentHtml}
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            if (isGenerating) {
+                html += `
+                    <div class="flex gap-4 mb-6">
+                        <div class="w-8 h-8 rounded-full border border-gray-200 flex-shrink-0 flex items-center justify-center bg-white shadow-sm mt-0.5">
+                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                        </div>
+                        <div class="flex-1 pt-1.5">
+                            <div class="typing-indicator flex items-center gap-[1px]"><span></span><span></span><span></span></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            
+            if (!text || isGenerating) return;
+
+            input.value = '';
+            input.style.height = 'auto';
+            handleInput(input);
+            isGenerating = true;
+
+            let chat = chats.find(c => c.id === activeChatId);
+            if (chat.messages.length === 0) {
+                chat.title = text.substring(0, 30) + (text.length > 30 ? '...' : '');
+            }
+
+            chat.messages.push({ role: 'user', type: 'text', content: text });
+            renderApp();
+
+            try {
+                let botMsg = { role: 'bot', type: 'text', content: '' };
+                const cmd = text.toLowerCase();
+
+                // Generate Image Command
+                if (cmd.startsWith('/image ')) {
+                    const prompt = text.substring(7).trim();
+                    const url = `https://ai-generator.rakibsarvar12.workers.dev/?text=${encodeURIComponent(prompt)}`;
+                    botMsg = { role: 'bot', type: 'image', content: url };
+                } 
+                // Normal Chat Response
+                else {
+                    const res = await fetch("https://darktube.serv00.net/ai.php", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ prompt: text })
+                    });
+                    const data = await res.json();
+                    botMsg.content = data.success ? data.response : (data.response || "An error occurred.");
+                }
+
+                chat.messages.push(botMsg);
+            } catch (error) {
+                chat.messages.push({ role: 'bot', type: 'text', content: "Network Error: Please check your connection." });
+            } finally {
+                isGenerating = false;
+                renderApp();
+            }
+        }
+    </script>
+</body>
+</html>
